@@ -39,7 +39,7 @@ The first step involves network scanning to find open ports and the software ver
 <img width="1269" height="702" alt="image" src="https://github.com/user-attachments/assets/8bf31e83-8858-4244-9907-c0026af3cc6d" />
 <img width="1271" height="113" alt="image" src="https://github.com/user-attachments/assets/94a6fdb5-a2bb-4078-9abf-cd89b9ef6419" />
 
-## 2. Vulnerability Assessment
+## 2. Scanning & Enumeration
 **Objective:** Identify security flaws based on recon data.
 
 **Web Enumeration (Gobuster):**
